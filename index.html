@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Solar Sub-Assembly Arm Simulation (2D)</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f5f5f5;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #controls {
+      margin: 10px;
+      padding: 10px;
+      background: #ffffff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    canvas {
+      border: 1px solid #333;
+      background: #ffffff;
+    }
+    .key {
+      display: inline-block;
+      padding: 2px 6px;
+      margin: 0 2px;
+      border: 1px solid #999;
+      border-radius: 3px;
+      background: #eee;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <div><strong>Controls</strong></div>
+    <div>
+      <span class="key">←</span>
+      <span class="key">→</span> Move arm along track
+    </div>
+    <div>
+      <span class="key">↑</span>
+      <span class="key">↓</span> Move arm up/down
+    </div>
+    <div>
+      <span class="key">C</span> Toggle clamp open/close
+    </div>
+    <div>
+      <span class="key">6</span>
+      <span class="key">7</span>
+      <span class="key">8</span>
+      <span class="key">9</span> Set module count
+    </div>
+    <div>
+      <span class="key">L</span> Increase tube length &nbsp;
+      <span class="key">K</span> Decrease tube length
+    </div>
+  </div>
+
+  <canvas id="simCanvas" width="1400" height="800"></canvas>
+
+  <script>
+    const canvas = document.getElementById("simCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+
+    // Colors
+    const WHITE = "#FFFFFF";
+    const GRAY = "#B4B4B4";
+    const DARK_GRAY = "#646464";
+    const BLUE = "#3264FF";
+    const GREEN = "#32C832";
+    const RED = "#C83232";
+    const BLACK = "#000000";
+
+    // Arm + Track parameters
+    const trackY = HEIGHT / 2;
+    let armX = WIDTH / 2;
+    let armY = HEIGHT / 2;
+    const armWidth = 40;
+    const armHeight = 200;
+
+    // Clamp parameters
+    const clampWidth = 60;
+    const clampHeight = 40;
+    let clampOpen = false;
+
+    // Torque tube + module assembly
+    let tubeLength = 900; // represents 28–41.8 ft range
+    const tubeHeight = 20;
+    const moduleWidth = 80;
+    const moduleHeight = 50;
+    let moduleCount = 6;
+
+    // Movement speeds
+    const TRACK_SPEED = 6;
+    const LIFT_SPEED = 4;
+
+    const keys = {};
+
+    window.addEventListener("keydown", (e) => {
+      keys[e.key.toLowerCase()] = true;
+
+      // Clamp toggle
+      if (e.key.toLowerCase() === "c") {
+        clampOpen = !clampOpen;
+      }
+
+      // Module count
+      if (e.key === "6") moduleCount = 6;
+      if (e.key === "7") moduleCount = 7;
+      if (e.key === "8") moduleCount = 8;
+      if (e.key === "9") moduleCount = 9;
+
+      // Tube length adjustment
+      if (e.key.toLowerCase() === "l") {
+        if (tubeLength < 1300) tubeLength += 100;
+      }
+      if (e.key.toLowerCase() === "k") {
+        if (tubeLength > 600) tubeLength -= 100;
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      keys[e.key.toLowerCase()] = false;
+    });
+
+    function drawTrack() {
+      ctx.fillStyle = DARK_GRAY;
+      ctx.fillRect(0, trackY - 10, WIDTH, 20);
+    }
+
+    function drawArm() {
+      ctx.fillStyle = BLUE;
+      ctx.fillRect(
+        armX,
+        armY - armHeight / 2,
+        armWidth,
+        armHeight
+      );
+    }
+
+    function drawClamp() {
+      const clampX = armX + armWidth;
+      const clampY = armY - clampHeight / 2;
+
+      ctx.strokeStyle = RED;
+      ctx.fillStyle = RED;
+
+      if (clampOpen) {
+        ctx.lineWidth = 3;
+        ctx.strokeRect(clampX, clampY, clampWidth, clampHeight);
+      } else {
+        ctx.fillRect(clampX, clampY, clampWidth, clampHeight);
+      }
+    }
+
+    function drawTorqueTubeAndModules() {
+      if (clampOpen) {
+        return;
+      }
+
+      const tubeX = armX + armWidth + clampWidth;
+      const tubeY = armY - tubeHeight / 2;
+
+      // Torque tube
+      ctx.fillStyle = GREEN;
+      ctx.fillRect(tubeX, tubeY, tubeLength, tubeHeight);
+
+      // Modules
+      const moduleSpacing = tubeLength / moduleCount;
+      ctx.fillStyle = GRAY;
+      for (let i = 0; i < moduleCount; i++) {
+        const mx = tubeX + i * moduleSpacing;
+        const my = tubeY - moduleHeight;
+        ctx.fillRect(mx, my, moduleWidth, moduleHeight);
+      }
+
+      // Approximate load marker
+      const totalWeightTube = 148 + (tubeLength - 900) * 0.1;
+      const totalWeightModules = moduleCount * 60;
+      const totalWeight = totalWeightTube + totalWeightModules;
+
+      const comX = tubeX + tubeLength / 2;
+      const comY = tubeY + tubeHeight / 2;
+
+      ctx.fillStyle = BLACK;
+      ctx.beginPath();
+      ctx.arc(comX, comY, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = "12px Arial";
+      ctx.fillText(
+        `Approx. Load: ${totalWeight.toFixed(0)} lbs`,
+        comX - 60,
+        comY - 12
+      );
+    }
+
+    function update() {
+      // Horizontal movement
+      if (keys["arrowleft"]) {
+        armX -= TRACK_SPEED;
+      }
+      if (keys["arrowright"]) {
+        armX += TRACK_SPEED;
+      }
+
+      // Vertical movement
+      if (keys["arrowup"]) {
+        armY -= LIFT_SPEED;
+      }
+      if (keys["arrowdown"]) {
+        armY += LIFT_SPEED;
+      }
+
+      // Bounds
+      const margin = 50;
+      if (armX < margin) armX = margin;
+      if (armX > WIDTH - margin - armWidth - clampWidth - tubeLength)
+        armX = WIDTH - margin - armWidth - clampWidth - tubeLength;
+      if (armY < margin) armY = margin;
+      if (armY > HEIGHT - margin) armY = HEIGHT - margin;
+    }
+
+    function draw() {
+      ctx.fillStyle = WHITE;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      drawTrack();
+      drawArm();
+      drawClamp();
+      drawTorqueTubeAndModules();
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
