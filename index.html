@@ -2,28 +2,71 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Solar Sub-Assembly Arm Simulation (2D)</title>
+  <title>Solar Arm Simulation</title>
   <style>
     body {
       margin: 0;
-      background: #f5f5f5;
+      background: #e9eef3;
       font-family: Arial, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
+
+    #startScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(20, 20, 20, 0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      z-index: 10;
+    }
+
+    #startScreen h1 {
+      font-size: 42px;
+      margin-bottom: 20px;
+      letter-spacing: 1px;
+    }
+
+    #startButton {
+      padding: 14px 32px;
+      font-size: 20px;
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.25s;
+    }
+
+    #startButton:hover {
+      background: #45a049;
+      transform: scale(1.05);
+    }
+
     #controls {
       margin: 10px;
-      padding: 10px;
+      padding: 12px 20px;
       background: #ffffff;
       border: 1px solid #ccc;
-      border-radius: 6px;
+      border-radius: 10px;
       font-size: 14px;
+      box-shadow: 0px 2px 6px rgba(0,0,0,0.15);
     }
+
     canvas {
       border: 1px solid #333;
       background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0px 2px 10px rgba(0,0,0,0.2);
     }
+
     .key {
       display: inline-block;
       padding: 2px 6px;
@@ -36,29 +79,22 @@
   </style>
 </head>
 <body>
+
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <h1>Solar Arm Simulation</h1>
+    <button id="startButton">Start Simulation</button>
+  </div>
+
+  <!-- Controls -->
   <div id="controls">
-    <div><strong>Controls</strong></div>
-    <div>
-      <span class="key">←</span>
-      <span class="key">→</span> Move arm along track
-    </div>
-    <div>
-      <span class="key">↑</span>
-      <span class="key">↓</span> Move arm up/down
-    </div>
-    <div>
-      <span class="key">C</span> Toggle clamp open/close
-    </div>
-    <div>
-      <span class="key">6</span>
-      <span class="key">7</span>
-      <span class="key">8</span>
-      <span class="key">9</span> Set module count
-    </div>
-    <div>
-      <span class="key">L</span> Increase tube length &nbsp;
-      <span class="key">K</span> Decrease tube length
-    </div>
+    <strong>Controls</strong><br>
+    <span class="key">←</span><span class="key">→</span> Move arm horizontally<br>
+    <span class="key">↑</span><span class="key">↓</span> Move arm vertically<br>
+    <span class="key">C</span> Toggle clamp<br>
+    <span class="key">6</span><span class="key">7</span><span class="key">8</span><span class="key">9</span> Module count<br>
+    <span class="key">L</span> Increase tube length &nbsp;
+    <span class="key">K</span> Decrease tube length
   </div>
 
   <canvas id="simCanvas" width="1400" height="800"></canvas>
@@ -72,12 +108,12 @@
 
     // Colors
     const WHITE = "#FFFFFF";
-    const GRAY = "#B4B4B4";
-    const DARK_GRAY = "#646464";
-    const BLUE = "#3264FF";
-    const GREEN = "#32C832";
-    const RED = "#C83232";
-    const BLACK = "#000000";
+    const GRAY = "#C8C8C8";
+    const DARK_GRAY = "#555";
+    const BLUE = "#3A6DFF";
+    const GREEN = "#4CAF50";
+    const RED = "#D64545";
+    const BLACK = "#000";
 
     // Arm + Track parameters
     const trackY = HEIGHT / 2;
@@ -92,7 +128,7 @@
     let clampOpen = false;
 
     // Torque tube + module assembly
-    let tubeLength = 900; // represents 28–41.8 ft range
+    let tubeLength = 900;
     const tubeHeight = 20;
     const moduleWidth = 80;
     const moduleHeight = 50;
@@ -103,28 +139,27 @@
     const LIFT_SPEED = 4;
 
     const keys = {};
+    let simulationRunning = false;
+
+    document.getElementById("startButton").onclick = () => {
+      document.getElementById("startScreen").style.display = "none";
+      simulationRunning = true;
+    };
 
     window.addEventListener("keydown", (e) => {
       keys[e.key.toLowerCase()] = true;
 
-      // Clamp toggle
-      if (e.key.toLowerCase() === "c") {
-        clampOpen = !clampOpen;
-      }
+      if (!simulationRunning) return;
 
-      // Module count
+      if (e.key.toLowerCase() === "c") clampOpen = !clampOpen;
+
       if (e.key === "6") moduleCount = 6;
       if (e.key === "7") moduleCount = 7;
       if (e.key === "8") moduleCount = 8;
       if (e.key === "9") moduleCount = 9;
 
-      // Tube length adjustment
-      if (e.key.toLowerCase() === "l") {
-        if (tubeLength < 1300) tubeLength += 100;
-      }
-      if (e.key.toLowerCase() === "k") {
-        if (tubeLength > 600) tubeLength -= 100;
-      }
+      if (e.key.toLowerCase() === "l" && tubeLength < 1300) tubeLength += 100;
+      if (e.key.toLowerCase() === "k" && tubeLength > 600) tubeLength -= 100;
     });
 
     window.addEventListener("keyup", (e) => {
@@ -138,12 +173,7 @@
 
     function drawArm() {
       ctx.fillStyle = BLUE;
-      ctx.fillRect(
-        armX,
-        armY - armHeight / 2,
-        armWidth,
-        armHeight
-      );
+      ctx.fillRect(armX, armY - armHeight / 2, armWidth, armHeight);
     }
 
     function drawClamp() {
@@ -161,70 +191,38 @@
       }
     }
 
-    function drawTorqueTubeAndModules() {
-      if (clampOpen) {
-        return;
-      }
+    function drawTorqueTube() {
+      if (clampOpen) return;
 
       const tubeX = armX + armWidth + clampWidth;
       const tubeY = armY - tubeHeight / 2;
 
-      // Torque tube
       ctx.fillStyle = GREEN;
       ctx.fillRect(tubeX, tubeY, tubeLength, tubeHeight);
 
-      // Modules
-      const moduleSpacing = tubeLength / moduleCount;
+      const spacing = tubeLength / moduleCount;
       ctx.fillStyle = GRAY;
+
       for (let i = 0; i < moduleCount; i++) {
-        const mx = tubeX + i * moduleSpacing;
+        const mx = tubeX + i * spacing;
         const my = tubeY - moduleHeight;
         ctx.fillRect(mx, my, moduleWidth, moduleHeight);
       }
-
-      // Approximate load marker
-      const totalWeightTube = 148 + (tubeLength - 900) * 0.1;
-      const totalWeightModules = moduleCount * 60;
-      const totalWeight = totalWeightTube + totalWeightModules;
-
-      const comX = tubeX + tubeLength / 2;
-      const comY = tubeY + tubeHeight / 2;
-
-      ctx.fillStyle = BLACK;
-      ctx.beginPath();
-      ctx.arc(comX, comY, 6, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.font = "12px Arial";
-      ctx.fillText(
-        `Approx. Load: ${totalWeight.toFixed(0)} lbs`,
-        comX - 60,
-        comY - 12
-      );
     }
 
     function update() {
-      // Horizontal movement
-      if (keys["arrowleft"]) {
-        armX -= TRACK_SPEED;
-      }
-      if (keys["arrowright"]) {
-        armX += TRACK_SPEED;
-      }
+      if (!simulationRunning) return;
 
-      // Vertical movement
-      if (keys["arrowup"]) {
-        armY -= LIFT_SPEED;
-      }
-      if (keys["arrowdown"]) {
-        armY += LIFT_SPEED;
-      }
+      if (keys["arrowleft"]) armX -= TRACK_SPEED;
+      if (keys["arrowright"]) armX += TRACK_SPEED;
+      if (keys["arrowup"]) armY -= LIFT_SPEED;
+      if (keys["arrowdown"]) armY += LIFT_SPEED;
 
-      // Bounds
       const margin = 50;
       if (armX < margin) armX = margin;
       if (armX > WIDTH - margin - armWidth - clampWidth - tubeLength)
         armX = WIDTH - margin - armWidth - clampWidth - tubeLength;
+
       if (armY < margin) armY = margin;
       if (armY > HEIGHT - margin) armY = HEIGHT - margin;
     }
@@ -236,7 +234,7 @@
       drawTrack();
       drawArm();
       drawClamp();
-      drawTorqueTubeAndModules();
+      drawTorqueTube();
     }
 
     function loop() {
